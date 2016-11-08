@@ -1,0 +1,18 @@
+# Linux
+*~
+*.swp
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Mac OS X
+.DS_Store
+._*
+
+# Python
+*.pyc
+
+# Python distutils
+/build
+files.txt
