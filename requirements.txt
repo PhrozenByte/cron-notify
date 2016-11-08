@@ -1,0 +1,5 @@
+croniter
+dbus-python
+notify2
+pygobject
+pyxdg
