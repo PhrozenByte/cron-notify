@@ -283,6 +283,10 @@ class BorgNotify(object):
     def _showStatusNotification(self, status):
         assert status in ( self._STATUS_SUCCESS, self._STATUS_WARNING, self._STATUS_ERROR )
 
+        if not pynotify.is_initted():
+            if not pynotify.init("borg-notify"):
+                raise RuntimeError("Failed to initialize notification")
+
         backupName = self._name and 'Borg Backup "{}"'.format(self._name) or "Borg Backup"
 
         message = "Your recent " + backupName + " finished."
