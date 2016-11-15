@@ -29,6 +29,9 @@ class BackupNotify(object):
 
     _bus = None
 
+    _timeoutId = None
+    _timeoutTime = None
+
     _notification = None
     _notificationAction = None
 
@@ -122,6 +125,7 @@ class BackupNotify(object):
         if not pynotify.init("borg-notify"):
             raise RuntimeError("Failed to initialize notification")
 
+        self._monitorResuming()
         self._wait()
 
     def resetCache(self):
@@ -181,6 +185,37 @@ class BackupNotify(object):
             timestamp = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
             cacheFile.write(str(timestamp))
 
+    def _monitorResuming(self):
+        try:
+            self._logger.info("Registering system suspend/hibernate callback...")
+
+            self._bus.add_signal_receiver(
+                self._resumeCallback,
+                dbus_interface="org.freedesktop.login1.Manager",
+                signal_name="PrepareForSleep",
+                bus_name="org.freedesktop.login1",
+                path="/org/freedesktop/login1"
+            )
+
+        except dbus.exceptions.DBusException:
+            self._logger.warning("Unable to register suspend/hibernate callback")
+            pass
+
+    def _resumeCallback(self, isPreparing):
+        if not isPreparing:
+            self._logger.info("System resumes from suspend/hibernate")
+
+            if self._timeoutId is not None:
+                GObject.source_remove(self._timeoutId)
+
+                timeDifference = int((self._timeoutTime - datetime.datetime.today()).total_seconds())
+                sleepTime = max(timeDifference, 120)
+
+                self._timeoutId = None
+                self._timeoutTime = None
+
+                self._timeout(sleepTime)
+
     def _wait(self):
         if self._waitUntilScheduled():
             if self._waitUntilMainPower():
@@ -200,9 +235,7 @@ class BackupNotify(object):
             timeDifference = int((self._nextExecution - datetime.datetime.today()).total_seconds())
             if timeDifference > 0:
                 sleepTime = min(timeDifference, 3600)
-                GObject.timeout_add(sleepTime * 1000, self._timeoutCallback)
-
-                self._logger.info("Sleeping for %s seconds...", sleepTime)
+                self._timeout(sleepTime)
                 return False
 
             return True
@@ -210,7 +243,20 @@ class BackupNotify(object):
         self._logger.info("Command has never been executed")
         return True
 
+    def _timeout(self, timeout):
+        assert self._timeoutId is None
+        assert self._timeoutTime is None
+
+        self._timeoutId = GObject.timeout_add(timeout * 1000, self._timeoutCallback)
+        self._timeoutTime = datetime.datetime.today() + datetime.timedelta(0, timeout)
+
+        if (timeout > 0):
+            self._logger.info("Sleeping for %s seconds...", timeout)
+
     def _timeoutCallback(self):
+        self._timeoutId = None
+        self._timeoutTime = None
+
         self._wait()
         return False
 
@@ -222,9 +268,10 @@ class BackupNotify(object):
 
             if onBattery:
                 self._bus.add_signal_receiver(
-                    self._upowerCallback,
+                    self._batteryCallback,
                     dbus_interface="org.freedesktop.DBus.Properties",
                     signal_name="PropertiesChanged",
+                    bus_name="org.freedesktop.UPower",
                     path="/org/freedesktop/UPower"
                 )
 
@@ -232,16 +279,16 @@ class BackupNotify(object):
                 return False
 
         except dbus.exceptions.DBusException:
-            self._logger.info("Unable to check the system's power source; assuming it's on main power")
+            self._logger.warning("Unable to check the system's power source; assuming it's on main power")
             pass
 
         return True
 
-    def _upowerCallback(self, interfaceName, changedProperties, invalidatedProperties):
+    def _batteryCallback(self, interfaceName, changedProperties, invalidatedProperties):
         if "OnBattery" in changedProperties:
             if not changedProperties["OnBattery"]:
                 self._bus.remove_signal_receiver(
-                    self._upowerCallback,
+                    self._batteryCallback,
                     dbus_interface="org.freedesktop.DBus.Properties",
                     signal_name="PropertiesChanged",
                     path="/org/freedesktop/UPower"
@@ -292,8 +339,7 @@ class BackupNotify(object):
             self._notificationAction = None
             self._notification = None
 
-            GObject.timeout_add(self._sleepTime * 1000, self._timeoutCallback)
-            self._logger.info("Sleeping for %s seconds...", self._sleepTime)
+            self._timeout(self._sleepTime)
         else:
             self.updateLastExecution()
 
@@ -303,7 +349,7 @@ class BackupNotify(object):
             self._notificationAction = None
             self._notification = None
 
-            GObject.timeout_add(0, self._timeoutCallback)
+            self._timeout(0)
 
     def _showStatusNotification(self, status):
         assert status in ( self._STATUS_SUCCESS, self._STATUS_WARNING, self._STATUS_ERROR )
