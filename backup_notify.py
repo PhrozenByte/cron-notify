@@ -14,6 +14,8 @@ class BackupNotify(object):
     _STATUS_WARNING = 1
     _STATUS_ERROR = 2
 
+    _app = "backup-notify"
+
     _id = None
     _commands = None
 
@@ -22,7 +24,7 @@ class BackupNotify(object):
     _sleepTime = 3600
     _debugLevel = 0
 
-    _cachePath = BaseDirectory.save_cache_path("borg-notify")
+    _cachePath = None
 
     _lastExecution = None
     _nextExecution = None
@@ -79,6 +81,8 @@ class BackupNotify(object):
         self._logger.addHandler(logHandler)
         self._logger.setLevel(logging.WARNING)
 
+        self._cachePath = BaseDirectory.save_cache_path(self._app)
+
     @property
     def id(self):
         return self._id
@@ -122,7 +126,7 @@ class BackupNotify(object):
         if not self._bus:
             raise RuntimeError("Failed to initialize DBus system bus")
 
-        if not pynotify.init("borg-notify"):
+        if not pynotify.init(self._app):
             raise RuntimeError("Failed to initialize notification")
 
         self._monitorResuming()
@@ -355,7 +359,7 @@ class BackupNotify(object):
         assert status in ( self._STATUS_SUCCESS, self._STATUS_WARNING, self._STATUS_ERROR )
 
         if not pynotify.is_initted():
-            if not pynotify.init("borg-notify"):
+            if not pynotify.init(self._app):
                 raise RuntimeError("Failed to initialize notification")
 
         backupName = self.name and self._backupName[1].format(self._name) or self._backupName[0];

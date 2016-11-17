@@ -1,6 +1,8 @@
 from backup_notify import BackupNotify
 
 class BorgNotify(BackupNotify):
+    _app = "borg-notify"
+
     _backupName = ( "Borg Backup", 'Borg Backup "{}"' )
     _notificationData = {
         "summary": "Borg Backup",
