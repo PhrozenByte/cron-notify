@@ -207,7 +207,7 @@ class BackupNotify(object):
 
     def _resumeCallback(self, isPreparing):
         if not isPreparing:
-            self._logger.info("System resumes from suspend/hibernate")
+            self._logger.debug("System resumes from suspend/hibernate")
 
             if self._timeoutId is not None:
                 GObject.source_remove(self._timeoutId)
@@ -232,11 +232,15 @@ class BackupNotify(object):
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
         if self._lastExecution is not None:
-            self._nextExecution = self.getNextExecution(self._lastExecution)
-            self._logger.info("Last execution was on %s", self._lastExecution)
-            self._logger.info("Next execution is scheduled for %s", self._nextExecution)
+            nextExecution = self.getNextExecution(self._lastExecution)
+            timeDifference = int((nextExecution - datetime.datetime.today()).total_seconds())
 
-            timeDifference = int((self._nextExecution - datetime.datetime.today()).total_seconds())
+            logLevel = logging.DEBUG if nextExecution == self._nextExecution and timeDifference > 0 else logging.INFO
+            self._logger.log(logLevel, "Last execution was on %s", self._lastExecution)
+            self._logger.log(logLevel, "Next execution is scheduled for %s", nextExecution)
+
+            self._nextExecution = nextExecution
+
             if timeDifference > 0:
                 sleepTime = min(timeDifference, 3600)
                 self._timeout(sleepTime)
@@ -255,7 +259,7 @@ class BackupNotify(object):
         self._timeoutTime = datetime.datetime.today() + datetime.timedelta(0, timeout)
 
         if (timeout > 0):
-            self._logger.info("Sleeping for %s seconds...", timeout)
+            self._logger.debug("Sleeping for %s seconds...", timeout)
 
     def _timeoutCallback(self):
         self._timeoutId = None
@@ -305,7 +309,7 @@ class BackupNotify(object):
         assert self._notification is None
         assert self._notificationAction is None
 
-        backupName = self.name and self._backupName[1].format(self._name) or self._backupName[0];
+        backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
 
         notificationData = self._notificationData.copy()
         notificationData["message"] = notificationData["message"].format(backupName)
@@ -362,7 +366,7 @@ class BackupNotify(object):
             if not pynotify.init(self._app):
                 raise RuntimeError("Failed to initialize notification")
 
-        backupName = self.name and self._backupName[1].format(self._name) or self._backupName[0];
+        backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
 
         notificationData = self._statusNotificationData[status].copy()
         notificationData["message"] = notificationData["message"].format(backupName)

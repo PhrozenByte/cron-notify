@@ -67,10 +67,12 @@ try:
                 except ValueError:
                     raise ConfigError("Invalid sleep time")
         except ConfigError as error:
-            if borgNotifyLogger:
-                borgNotifyLogger.error(error.message)
+            message = str(error)
 
-            message = error.message[0].lower() + error.message[1:]
+            if borgNotifyLogger:
+                borgNotifyLogger.error(message)
+
+            message = message[0].lower() + message[1:]
             sys.stderr.write('{}: section "{}": {}'.format(os.path.basename(sys.argv[0]), section, message))
         else:
             borgNotify.main()

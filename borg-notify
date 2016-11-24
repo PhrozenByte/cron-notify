@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import borg_notify
-import argparse, logging, shlex, sys
+import argparse, logging, os, shlex, sys
 from gi.repository import GObject
 
 class UsageError(ValueError):
@@ -77,7 +77,8 @@ try:
             except ValueError:
                 raise UsageError("Invalid sleep time given")
     except UsageError as error:
-        message = error.message[0].lower() + error.message[1:]
+        message = str(error)
+        message = message[0].lower() + message[1:]
         sys.stderr.write("{}: {}\n".format(os.path.basename(sys.argv[0]), message))
         sys.exit(1)
 
