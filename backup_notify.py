@@ -36,6 +36,7 @@ class BackupNotify(object):
 
     _notification = None
     _notificationAction = None
+    _notificationTimeout = None
 
     _backupStreams = { "stdin": None, "stdout": None, "stderr": None }
 
@@ -229,6 +230,8 @@ class BackupNotify(object):
                 if not self._notification.show():
                     raise RuntimeError("Failed to send notification")
 
+                self._initNotificationTimeout()
+
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
         if self._lastExecution is not None:
@@ -341,6 +344,10 @@ class BackupNotify(object):
         assert action == "default"
 
     def _notificationCloseCallback(self, notification):
+        if self._notificationTimeout is not None:
+            GObject.source_remove(self._notificationTimeout)
+            self._notificationTimeout = None
+
         if self._notificationAction is None:
             self._logger.info("User dismissed the notification")
 
@@ -348,16 +355,34 @@ class BackupNotify(object):
             self._notification = None
 
             self._timeout(self._sleepTime)
-        else:
+            return
+        elif self._notificationAction != "ignore":
             self.updateLastExecution()
 
             if self._notificationAction == "start":
                 self.backup()
 
-            self._notificationAction = None
-            self._notification = None
+        self._notificationAction = None
+        self._notification = None
 
-            self._timeout(0)
+        self._timeout(0)
+
+    def _initNotificationTimeout(self):
+        assert self._notification is not None
+        assert self._notificationTimeout is None
+
+        self._notificationTimeout = GObject.timeout_add(self._sleepTime * 1000, self._notificationTimeoutCallback)
+
+    def _notificationTimeoutCallback(self):
+        assert self._notification is not None
+
+        self._notificationTimeout = None
+
+        self._notificationAction = "ignore"
+        self._logger.info("User ignored the notification")
+
+        self._notification.close()
+        return False
 
     def _showStatusNotification(self, status):
         assert status in ( self._STATUS_SUCCESS, self._STATUS_WARNING, self._STATUS_ERROR )
