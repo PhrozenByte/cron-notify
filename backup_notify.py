@@ -36,7 +36,8 @@ class BackupNotify(object):
 
     _notification = None
     _notificationAction = None
-    _notificationTimeout = None
+    _notificationTimeoutId = None
+    _notificationTimeoutTime = None
 
     _backupStreams = { "stdin": None, "stdout": None, "stderr": None }
 
@@ -208,6 +209,8 @@ class BackupNotify(object):
 
     def _resumeCallback(self, isPreparing):
         if not isPreparing:
+            assert not ((self._timeoutId is not None) and (self._notificationTimeoutId is not None))
+
             self._logger.debug("System resumes from suspend/hibernate")
 
             if self._timeoutId is not None:
@@ -221,6 +224,17 @@ class BackupNotify(object):
 
                 self._timeout(sleepTime)
 
+            if self._notificationTimeoutId is not None:
+                GObject.source_remove(self._notificationTimeoutId)
+
+                timeDifference = int((self._notificationTimeoutTime - datetime.datetime.today()).total_seconds())
+                sleepTime = max(timeDifference, 120)
+
+                self._notificationTimeoutId = None
+                self._notificationTimeoutTime = None
+
+                self._notificationTimeout(sleepTime)
+
     def _wait(self):
         if self._waitUntilScheduled():
             if self._waitUntilMainPower():
@@ -230,7 +244,7 @@ class BackupNotify(object):
                 if not self._notification.show():
                     raise RuntimeError("Failed to send notification")
 
-                self._initNotificationTimeout()
+                self._notificationTimeout(self._sleepTime)
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
@@ -344,9 +358,11 @@ class BackupNotify(object):
         assert action == "default"
 
     def _notificationCloseCallback(self, notification):
-        if self._notificationTimeout is not None:
-            GObject.source_remove(self._notificationTimeout)
-            self._notificationTimeout = None
+        if self._notificationTimeoutId is not None:
+            GObject.source_remove(self._notificationTimeoutId)
+
+            self._notificationTimeoutId = None
+            self._notificationTimeoutTime = None
 
         if self._notificationAction is None:
             self._logger.info("User dismissed the notification")
@@ -367,16 +383,22 @@ class BackupNotify(object):
 
         self._timeout(0)
 
-    def _initNotificationTimeout(self):
+    def _notificationTimeout(self, timeout):
         assert self._notification is not None
-        assert self._notificationTimeout is None
+        assert self._notificationTimeoutId is None
+        assert self._notificationTimeoutTime is None
 
-        self._notificationTimeout = GObject.timeout_add(self._sleepTime * 1000, self._notificationTimeoutCallback)
+        self._notificationTimeoutId = GObject.timeout_add(timeout * 1000, self._notificationTimeoutCallback)
+        self._notificationTimeoutTime = datetime.datetime.today() + datetime.timedelta(0, timeout)
+
+        if (timeout > 0):
+            self._logger.debug("Giving user %s seconds to respond...", timeout)
 
     def _notificationTimeoutCallback(self):
         assert self._notification is not None
 
-        self._notificationTimeout = None
+        self._notificationTimeoutId = None
+        self._notificationTimeoutTime = None
 
         self._notificationAction = "ignore"
         self._logger.info("User ignored the notification")
