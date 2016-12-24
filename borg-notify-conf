@@ -23,7 +23,6 @@ try:
 
     notifications = []
     for section in configParser.sections():
-        borgNotifyLogger = None
         try:
             if not configParser.has_option(section, "command"):
                 raise ConfigError("No command given")
@@ -43,13 +42,12 @@ try:
             fileLogHandler = logging.FileHandler(fileLogPath)
             fileLogHandler.setFormatter(logging.Formatter("%(asctime)s: %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"))
 
-            borgNotifyLogger = borgNotify.getLogger()
-            borgNotifyLogger.handlers = []
-            borgNotifyLogger.setLevel(logging.INFO)
-            borgNotifyLogger.addHandler(fileLogHandler)
+            borgNotify.logger.handlers = []
+            borgNotify.logger.setLevel(logging.INFO)
+            borgNotify.logger.addHandler(fileLogHandler)
 
             fileLogStream = fileLogHandler.stream
-            borgNotify.setBackupStreams(stdout=fileLogStream, stderr=fileLogStream)
+            borgNotify.backupStreams = { "stdout": fileLogStream, "stderr": fileLogStream }
 
             if configParser.has_option(section, "name"):
                 try:
@@ -69,8 +67,8 @@ try:
         except ConfigError as error:
             message = str(error)
 
-            if borgNotifyLogger:
-                borgNotifyLogger.error(message)
+            if borgNotify.logger:
+                borgNotify.logger.error(message)
 
             message = message[0].lower() + message[1:]
             sys.stderr.write('{}: section "{}": {}'.format(os.path.basename(sys.argv[0]), section, message))

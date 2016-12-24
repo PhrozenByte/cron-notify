@@ -82,7 +82,7 @@ try:
         sys.stderr.write("{}: {}\n".format(os.path.basename(sys.argv[0]), message))
         sys.exit(1)
 
-    borgNotify.getLogger().setLevel(max(logging.NOTSET, logging.WARNING - args.verbosity * 10))
+    borgNotify.logger.setLevel(max(logging.NOTSET, logging.WARNING - args.verbosity * 10))
 
     if args.force:
         borgNotify.updateLastExecution()

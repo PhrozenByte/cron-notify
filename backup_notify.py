@@ -121,6 +121,22 @@ class BackupNotify(object):
     def sleepTime(self, sleepTime):
         self._sleepTime = int(sleepTime)
 
+    @property
+    def backupStreams(self):
+        return self._backupStreams
+
+    @backupStreams.setter
+    def backupStreams(self, backupStreams):
+        self._backupStreams = {
+            "stdin": backupStreams.get("stdin"),
+            "stdout": backupStreams.get("stdout"),
+            "stderr": backupStreams.get("stderr")
+        }
+
+    @property
+    def logger(self):
+        return self._logger
+
     def main(self):
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
@@ -426,9 +442,3 @@ class BackupNotify(object):
         self._logger.info("Sending status notification...")
         if not notification.show():
             raise RuntimeError("Failed to send notification")
-
-    def setBackupStreams(self, stdin=None, stdout=None, stderr=None):
-        self._backupStreams = { "stdin": stdin, "stdout": stdout, "stderr": stderr }
-
-    def getLogger(self):
-        return self._logger
