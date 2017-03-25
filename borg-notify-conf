@@ -49,6 +49,12 @@ try:
             fileLogStream = fileLogHandler.stream
             borgNotify.backupStreams = { "stdout": fileLogStream, "stderr": fileLogStream }
 
+            if configParser.has_option(section, "debug"):
+                try:
+                    if configParser.getboolean(section, "debug"):
+                        borgNotify.logger.setLevel(logging.DEBUG)
+                except ValueError:
+                    raise ConfigError("Invalid debug boolean")
             if configParser.has_option(section, "name"):
                 try:
                     borgNotify.name = configParser.get(section, "name")
@@ -82,5 +88,10 @@ try:
 
     GObject.MainLoop().run()
     sys.exit(0)
+except Exception as error:
+    if borgNotify.logger:
+        borgNotify.logger.error(str(error))
+
+    raise
 except KeyboardInterrupt:
     sys.exit(0)
