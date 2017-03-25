@@ -22,7 +22,6 @@ class BackupNotify(object):
     _name = None
     _cronExpression = "0 8 * * *"
     _sleepTime = 3600
-    _debugLevel = 0
 
     _cachePath = None
 
@@ -256,11 +255,11 @@ class BackupNotify(object):
             if self._waitUntilMainPower():
                 self._initNotification()
 
+                self._notificationTimeout(self._sleepTime)
+
                 self._logger.info("Sending notification...")
                 if not self._notification.show():
                     raise RuntimeError("Failed to send notification")
-
-                self._notificationTimeout(self._sleepTime)
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
@@ -342,6 +341,8 @@ class BackupNotify(object):
         assert self._notification is None
         assert self._notificationAction is None
 
+        self._logger.debug("Initializing notification...")
+
         backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
 
         notificationData = self._notificationData.copy()
@@ -393,6 +394,8 @@ class BackupNotify(object):
 
             if self._notificationAction == "start":
                 self.backup()
+
+        self._logger.debug("Notification closed")
 
         self._notificationAction = None
         self._notification = None
