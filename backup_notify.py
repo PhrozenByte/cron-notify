@@ -217,7 +217,6 @@ class BackupNotify(object):
                 bus_name="org.freedesktop.login1",
                 path="/org/freedesktop/login1"
             )
-
         except dbus.exceptions.DBusException:
             self._logger.warning("Unable to register suspend/hibernate callback")
             pass
@@ -255,11 +254,11 @@ class BackupNotify(object):
             if self._waitUntilMainPower():
                 self._initNotification()
 
-                self._notificationTimeout(self._sleepTime)
-
                 self._logger.info("Sending notification...")
                 if not self._notification.show():
                     raise RuntimeError("Failed to send notification")
+
+                self._notificationTimeout(self._sleepTime)
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
@@ -290,7 +289,7 @@ class BackupNotify(object):
         self._timeoutId = GObject.timeout_add(timeout * 1000, self._timeoutCallback)
         self._timeoutTime = datetime.datetime.today() + datetime.timedelta(0, timeout)
 
-        if (timeout > 0):
+        if timeout > 0:
             self._logger.debug("Sleeping for %s seconds...", timeout)
 
     def _timeoutCallback(self):
@@ -317,7 +316,6 @@ class BackupNotify(object):
 
                 self._logger.info("Sleeping until the system is connected to main power...")
                 return False
-
         except dbus.exceptions.DBusException:
             self._logger.warning("Unable to check the system's power source; assuming it's on main power")
             pass
@@ -410,7 +408,7 @@ class BackupNotify(object):
         self._notificationTimeoutId = GObject.timeout_add(timeout * 1000, self._notificationTimeoutCallback)
         self._notificationTimeoutTime = datetime.datetime.today() + datetime.timedelta(0, timeout)
 
-        if (timeout > 0):
+        if timeout > 0:
             self._logger.debug("Giving user %s seconds to respond...", timeout)
 
     def _notificationTimeoutCallback(self):
@@ -422,7 +420,19 @@ class BackupNotify(object):
         self._notificationAction = "ignore"
         self._logger.info("User ignored the notification")
 
-        self._notification.close()
+        try:
+            self._notification.close()
+        except dbus.exceptions.DBusException:
+            self._logger.warning("DBus interface died, re-initializing...")
+
+            if not pynotify.init(self._app):
+                raise RuntimeError("Failed to re-initialize notification")
+
+            self._notificationAction = None
+            self._notification = None
+
+            self._timeout(0)
+
         return False
 
     def _showStatusNotification(self, status):
