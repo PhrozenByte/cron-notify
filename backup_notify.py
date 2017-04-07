@@ -1,4 +1,4 @@
-import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys
+import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys, threading
 from gi.repository import GObject
 from xdg import BaseDirectory
 
@@ -18,6 +18,7 @@ class BackupNotify(object):
 
     _id = None
     _commands = None
+    _blocking = True
 
     _name = None
     _cronExpression = "0 8 * * *"
@@ -27,6 +28,9 @@ class BackupNotify(object):
 
     _lastExecution = None
     _nextExecution = None
+
+    _backupId = 0
+    _lock = None
 
     _bus = None
 
@@ -68,21 +72,24 @@ class BackupNotify(object):
         }
     }
 
-    def __init__(self, commands):
+    def __init__(self, commands, blocking=True):
         if not commands or len(commands) == 0:
             raise ValueError("Invalid commands given")
 
         self._id = hashlib.sha1(str(commands).encode("utf-8")).hexdigest()
         self._commands = commands
+        self._blocking = blocking
 
         logHandler = logging.StreamHandler(stream=sys.stderr)
         logHandler.setFormatter(logging.Formatter("%(asctime)s: %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"))
 
-        self._logger = logging.getLogger(__name__ + "." + self._id)
+        self._logger = logging.getLogger("{}.{}.{}.{}".format(__name__, self._app, os.getpid(), self._id))
         self._logger.addHandler(logHandler)
         self._logger.setLevel(logging.WARNING)
 
         self._cachePath = BaseDirectory.save_cache_path(self._app)
+
+        self._lock = threading.Lock()
 
     @property
     def id(self):
@@ -143,7 +150,7 @@ class BackupNotify(object):
         if not self._bus:
             raise RuntimeError("Failed to initialize DBus system bus")
 
-        if not pynotify.init(self._app):
+        if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
             raise RuntimeError("Failed to initialize notification")
 
         self._monitorResuming()
@@ -157,32 +164,70 @@ class BackupNotify(object):
             if error.errno != errno.ENOENT:
                 raise
 
-    def backup(self):
+    def backup(self, blocking=None):
+        self._backupId += 1
+
+        if blocking is None:
+            blocking = self._blocking
+
+        if not blocking:
+            logPrefix = "[{} #{}] ".format(self._id, self._backupId)
+            backupThread = threading.Thread(target=self._backup, kwargs={ "logPrefix": logPrefix })
+            backupThread.start()
+            return None
+        else:
+            return self._backup()
+
+    def _backup(self, logPrefix=""):
+        self._logger.debug("%sAcquiring lock...", logPrefix)
+        self._lock.acquire()
+
         overallStatus = self._STATUS_SUCCESS
         for command in self._commands:
-            self._logger.info("Executing `%s`...", " ".join(command))
+            self._logger.info("%sExecuting `%s`...", logPrefix, " ".join(command))
+
             try:
                 subprocess.check_call(command, **self._backupStreams)
             except OSError as error:
-                if overallStatus < self._STATUS_ERROR: overallStatus = self._STATUS_ERROR
+                if overallStatus < self._STATUS_ERROR:
+                    overallStatus = self._STATUS_ERROR
+
                 if error.errno == errno.ENOENT:
-                    self._logger.error("Execution of `%s` failed: No such file or directory", " ".join(command))
+                    self._logger.error(
+                        "%sExecution of `%s` failed: No such file or directory",
+                        logPrefix,
+                        " ".join(command)
+                    )
                 elif error.errno == errno.EACCES:
-                    self._logger.error("Execution of `%s` failed: Permission denied", " ".join(command))
+                    self._logger.error(
+                        "%sExecution of `%s` failed: Permission denied",
+                        logPrefix,
+                        " ".join(command)
+                    )
                 else:
                     raise
             except subprocess.CalledProcessError as error:
-                if overallStatus < self._STATUS_WARNING: overallStatus = self._STATUS_WARNING
-                self._logger.warning("Execution of `%s` failed with exit status %s", " ".join(command), error.returncode)
+                if overallStatus < self._STATUS_WARNING:
+                    overallStatus = self._STATUS_WARNING
+
+                self._logger.warning(
+                    "%sExecution of `%s` failed with exit status %s",
+                    logPrefix,
+                    " ".join(command),
+                    error.returncode
+                )
 
         if overallStatus == self._STATUS_SUCCESS:
-            self._logger.info("Backup finished successfully")
+            self._logger.info("%sBackup finished successfully", logPrefix)
         elif overallStatus == self._STATUS_WARNING:
-            self._logger.warning("Backup finished with warnings")
+            self._logger.warning("%sBackup finished with warnings", logPrefix)
         elif overallStatus == self._STATUS_ERROR:
-            self._logger.error("Backup failed")
+            self._logger.error("%sBackup failed", logPrefix)
 
         self._showStatusNotification(overallStatus)
+
+        self._lock.release()
+        return overallStatus != self._STATUS_ERROR
 
     def getLastExecution(self):
         lastExecution = None
@@ -359,20 +404,25 @@ class BackupNotify(object):
 
     def _notificationStartCallback(self, notification, action):
         assert action == "start"
+        assert notification == self._notification
 
         self._notificationAction = "start"
         self._logger.info("User requested to start the backup")
 
     def _notificationSkipCallback(self, notification, action):
         assert action == "skip"
+        assert notification == self._notification
 
         self._notificationAction = "skip"
         self._logger.info("User requested to skip the backup")
 
     def _notificationDefaultCallback(self, notification, action):
         assert action == "default"
+        assert notification == self._notification
 
     def _notificationCloseCallback(self, notification):
+        assert notification == self._notification
+
         if self._notificationTimeoutId is not None:
             GObject.source_remove(self._notificationTimeoutId)
 
@@ -425,7 +475,7 @@ class BackupNotify(object):
         except dbus.exceptions.DBusException:
             self._logger.warning("DBus interface died, re-initializing...")
 
-            if not pynotify.init(self._app):
+            if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
                 raise RuntimeError("Failed to re-initialize notification")
 
             self._notificationAction = None

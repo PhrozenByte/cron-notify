@@ -29,7 +29,7 @@ try:
 
             try:
                 command = shlex.split(configParser.get(section, "command"))
-                borgNotify = borg_notify.BorgNotify([ command ])
+                borgNotify = borg_notify.BorgNotify([ command ], blocking=False)
             except ValueError:
                 raise ConfigError("Invalid command")
 
