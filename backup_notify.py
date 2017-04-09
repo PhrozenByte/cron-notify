@@ -171,7 +171,7 @@ class BackupNotify(object):
             blocking = self._blocking
 
         if not blocking:
-            logPrefix = "[{} #{}] ".format(self._id, self._backupId)
+            logPrefix = "[#{}] ".format(self._backupId)
             backupThread = threading.Thread(target=self._backup, kwargs={ "logPrefix": logPrefix })
             backupThread.start()
             return None
@@ -397,28 +397,16 @@ class BackupNotify(object):
         self._notification.set_timeout(pynotify.EXPIRES_NEVER)
         self._notification.set_category("presence")
 
-        self._notification.add_action("start", "Start", self._notificationStartCallback)
-        self._notification.add_action("skip", "Skip", self._notificationSkipCallback)
-        self._notification.add_action("default", "Not Now", self._notificationDefaultCallback)
+        self._notification.add_action("start", "Start", self._notificationCallback)
+        self._notification.add_action("skip", "Skip", self._notificationCallback)
+        self._notification.add_action("default", "Not Now", self._notificationCallback)
         self._notification.connect("closed", self._notificationCloseCallback)
 
-    def _notificationStartCallback(self, notification, action):
-        assert action == "start"
+    def _notificationCallback(self, notification, action):
         assert notification == self._notification
 
-        self._notificationAction = "start"
-        self._logger.info("User requested to start the backup")
-
-    def _notificationSkipCallback(self, notification, action):
-        assert action == "skip"
-        assert notification == self._notification
-
-        self._notificationAction = "skip"
-        self._logger.info("User requested to skip the backup")
-
-    def _notificationDefaultCallback(self, notification, action):
-        assert action == "default"
-        assert notification == self._notification
+        if action != "default":
+            self._notificationAction = action
 
     def _notificationCloseCallback(self, notification):
         assert notification == self._notification
@@ -438,6 +426,8 @@ class BackupNotify(object):
             self._timeout(self._sleepTime)
             return
         elif self._notificationAction != "ignore":
+            self._logger.info("User requested to %s the backup", self._notificationAction)
+
             self.updateLastExecution()
 
             if self._notificationAction == "start":
