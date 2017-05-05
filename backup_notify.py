@@ -318,11 +318,10 @@ class BackupNotify(object):
             if self._waitUntilMainPower():
                 self._initNotification()
 
-                self._logger.info("Sending notification...")
-                if not self._notification.show():
-                    raise RuntimeError("Failed to send notification")
-
                 self._notificationTimeout(self._sleepTime)
+
+                self._logger.info("Sending notification...")
+                self._showNotification(self._notification)
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
