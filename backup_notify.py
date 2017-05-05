@@ -148,9 +148,11 @@ class BackupNotify(object):
 
         self._bus = dbus.SystemBus()
         if not self._bus:
+            self._logger.error("Failed to initialize DBus system bus")
             raise RuntimeError("Failed to initialize DBus system bus")
 
         if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
+            self._logger.error("Failed to initialize notification")
             raise RuntimeError("Failed to initialize notification")
 
         self._monitorResuming()
@@ -162,6 +164,11 @@ class BackupNotify(object):
             os.remove(self._cachePath + "/" + self._id)
         except OSError as error:
             if error.errno != errno.ENOENT:
+                self._logger.error(
+                    "While resetting the cache, a exception occurred: %s: %s",
+                    type(error).__name__,
+                    error
+                )
                 raise
 
     def backup(self, blocking=None):
@@ -205,6 +212,13 @@ class BackupNotify(object):
                         " ".join(command)
                     )
                 else:
+                    self._logger.error(
+                        "%sExecution of `%s` failed: %s: %s",
+                        logPrefix,
+                        " ".join(command),
+                        type(error).__name__,
+                        error
+                    )
                     raise
             except subprocess.CalledProcessError as error:
                 if overallStatus < self._STATUS_WARNING:
@@ -238,6 +252,11 @@ class BackupNotify(object):
                     lastExecution = datetime.datetime.fromtimestamp(int(lastExecutionTime))
         except IOError as error:
             if error.errno != errno.ENOENT:
+                self._logger.error(
+                    "While reading the last execution time, a exception occurred: %s: %s",
+                    type(error).__name__,
+                    error
+                )
                 raise
 
         return lastExecution
@@ -466,6 +485,7 @@ class BackupNotify(object):
             self._logger.warning("DBus interface died, re-initializing...")
 
             if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
+                self._logger.error("Failed to re-initialize notification")
                 raise RuntimeError("Failed to re-initialize notification")
 
             self._notificationAction = None
@@ -480,6 +500,7 @@ class BackupNotify(object):
 
         if not pynotify.is_initted():
             if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
+                self._logger.error("Failed to initialize notification")
                 raise RuntimeError("Failed to initialize notification")
 
         backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
@@ -493,5 +514,21 @@ class BackupNotify(object):
         notification.set_category("presence")
 
         self._logger.info("Sending status notification...")
-        if not notification.show():
+        self._showNotification(notification)
+
+    def _showNotification(self, notification):
+        assert notification is not None
+
+        try:
+            notificationShown = notification.show()
+        except Exception as error:
+            self._logger.error(
+                "While sending a notification, a exception occurred: %s: %s",
+                type(error).__name__,
+                error
+            )
+            raise
+
+        if not notificationShown:
+            self._logger.error("Failed to send notification")
             raise RuntimeError("Failed to send notification")
