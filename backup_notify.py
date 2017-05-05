@@ -479,7 +479,7 @@ class BackupNotify(object):
         assert status in ( self._STATUS_SUCCESS, self._STATUS_WARNING, self._STATUS_ERROR )
 
         if not pynotify.is_initted():
-            if not pynotify.init(self._app):
+            if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
                 raise RuntimeError("Failed to initialize notification")
 
         backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
