@@ -86,8 +86,8 @@ try:
 
     if args.force:
         borgNotify.updateLastExecution()
-        borgNotify.backup()
-        sys.exit(0)
+        success = borgNotify.backup()
+        sys.exit(0 if success else 1)
 
     if args.reset:
         borgNotify.resetCache()
