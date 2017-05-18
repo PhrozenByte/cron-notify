@@ -528,6 +528,8 @@ class BackupNotify(object):
     def _showNotification(self, notification):
         assert notification is not None
 
+        notificationShown = False
+
         try:
             notificationShown = notification.show()
         except dbus.exceptions.DBusException:
