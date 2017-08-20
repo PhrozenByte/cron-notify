@@ -154,7 +154,7 @@ class BackupNotify(object):
         self._initNotificationService()
 
         self._monitorResuming()
-        self._wait()
+        self._timeout(0)
 
     def resetCache(self):
         try:
