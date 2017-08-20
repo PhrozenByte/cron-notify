@@ -312,17 +312,21 @@ class BackupNotify(object):
                 self._notificationTimeout(sleepTime)
 
     def _wait(self):
-        if self._waitUntilScheduled():
-            if self._waitUntilMainPower():
-                self._initNotification()
+        try:
+            if self._waitUntilScheduled():
+                if self._waitUntilMainPower():
+                    self._initNotification()
 
-                self._notificationTimeout(self._sleepTime)
+                    self._notificationTimeout(self._sleepTime)
 
-                self._logger.info("Sending notification...")
-                if not self._showNotification(self._notification):
-                    self._resetNotificationTimeout()
-                    self._resetNotification()
-                    self._timeout(0)
+                    self._logger.info("Sending notification...")
+                    if not self._showNotification(self._notification):
+                        self._resetNotificationTimeout()
+                        self._resetNotification()
+                        self._timeout(0)
+        except Exception as error:
+            borgNotify.logger.error("%s: %s", type(error).__name__, error)
+            raise
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
@@ -503,6 +507,9 @@ class BackupNotify(object):
             self._notification = None
 
             self._timeout(0)
+        except Exception as error:
+            borgNotify.logger.error("%s: %s", type(error).__name__, error)
+            raise
 
         return False
 

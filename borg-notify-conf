@@ -90,7 +90,7 @@ try:
     sys.exit(0)
 except Exception as error:
     if borgNotify.logger:
-        borgNotify.logger.error(str(error))
+        borgNotify.logger.error("%s: %s", type(error).__name__, error)
 
     raise
 except KeyboardInterrupt:
