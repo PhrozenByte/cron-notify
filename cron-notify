@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+import cron_notify
+import argparse, logging, os, shlex, sys
+from gi.repository import GObject
+from xdg import BaseDirectory
+
+try:
+    import ConfigParser as configparser
+except ImportError:
+    import configparser
+
+__app__ = os.path.basename(sys.argv[0])
+
+try:
+    argumentParser = argparse.ArgumentParser(usage="%(prog)s [OPTION]... [CONFIG]...", add_help=False,
+        description="cron-notify is a FreeDesktop.org-compatible notification service to periodically ask for " +
+        "acknowledgement before executing a cronjob. It is often used for backup software.")
+    argumentParser.epilog = ("Please report bugs using GitHub at <https://github.com/PhrozenByte/cron-notify>. " +
+        "Besides, you will find general help and information about cron-notify there.")
+
+    argumentGroup = argumentParser.add_argument_group("Arguments")
+    argumentGroup.add_argument("configs", nargs="*", metavar="CONFIG",
+        help="File to read configuration from. You can either specify a filename ('config.ini'), a absolute path " +
+        "('/path/to/config.ini'), or a relative path ('./config.ini'). By specifying a filename, cron-notify " +
+        "searches for a accordingly named file in the configuration search path of 'cron-notify' as specified by " +
+        "the XDG Base Directory specification (e.g. '~/.config/cron-notify/'). Defaults to 'cron-notify.ini'")
+
+    applicationOptions = argumentParser.add_argument_group("Application options")
+    applicationOptions.add_argument("--critical", dest="logLevel",
+        action='store_const', default=logging.INFO, const=logging.CRITICAL,
+        help="Work on log level CRITICAL")
+    applicationOptions.add_argument("--error", dest="logLevel",
+        action='store_const', default=logging.INFO, const=logging.ERROR,
+        help="Work on log level ERROR")
+    applicationOptions.add_argument("-q", "--quiet", "--warning", dest="logLevel",
+        action='store_const', default=logging.INFO, const=logging.WARNING,
+        help="Work on log level WARNING")
+    applicationOptions.add_argument("--info", dest="logLevel",
+        action='store_const', default=logging.INFO, const=logging.INFO,
+        help="Work on log level INFO (default)")
+    applicationOptions.add_argument("-v", "--verbose", "--debug", dest="logLevel",
+        action='store_const', default=logging.INFO, const=logging.DEBUG,
+        help="Work on log level DEBUG")
+
+    helpOptions = argumentParser.add_argument_group("Help options")
+    helpOptions.add_argument("--help", dest="help", action="store_true",
+        help="Display this help message and exit")
+    helpOptions.add_argument("--version", dest="version", action="store_true",
+        help="Output version information and exit")
+
+    args = argumentParser.parse_args()
+
+    if args.help:
+        argumentParser.print_help()
+        sys.exit(0)
+
+    if args.version:
+        print("cron-notify {}".format(cron_notify.__version__))
+        print("Copyright (C) 2016-2017 Daniel Rudolf")
+        print("")
+        print("License GPLv3: GNU GPL version 3 only <http://gnu.org/licenses/gpl.html>.")
+        print("This is free software: you are free to change and redistribute it.")
+        print("There is NO WARRANTY, to the extent permitted by law.")
+        print("")
+        print("Written by Daniel Rudolf <http://www.daniel-rudolf.de/>")
+        print("See also: <https://github.com/PhrozenByte/cron-notify>")
+        sys.exit(0)
+
+    try:
+        configPaths = BaseDirectory.load_config_paths("cron-notify")
+        configParser = configparser.RawConfigParser()
+
+        configFiles = args.configs or [ "cron-notify.ini" ]
+        for configFileName in configFiles:
+            configFile = None
+            if "/" in configFileName:
+                configFile = configFileName
+            else:
+                for configPath in configPaths:
+                    if os.path.isfile(configPath + "/" + configFile):
+                        configFile = configPath + "/" + configFile
+                        break
+
+                if not configFile:
+                    raise IOError(2, "No such file or directory", configFile)
+
+            configParser.readfp(open(configFile))
+    except IOError as error:
+        sys.stderr.write("{}: unable to load config file: {}\n".format(__app__, str(error)))
+        sys.exit(1)
+
+    returnCode = 0
+    notifications = []
+    for section in configParser.sections():
+        cronNotify = None
+
+        try:
+            if not configParser.has_option(section, "command"):
+                raise ValueError("No commands given")
+
+            app = configParser.get(section, "app") if configParser.has_option(section, "app") else None
+            command = shlex.split(configParser.get(section, "command"))
+
+            cronNotify = cron_notify.CronNotify([ command ], app=app, id=section, async=True)
+
+            fileLogPath = BaseDirectory.save_cache_path(cronNotify.app) + "/" + cronNotify.id + ".log"
+            fileLogHandler = logging.FileHandler(fileLogPath)
+            fileLogHandler.setFormatter(logging.Formatter("%(asctime)s: %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"))
+
+            cronNotify.logger.handlers = []
+            cronNotify.logger.addHandler(fileLogHandler)
+            cronNotify.logger.setLevel(args.logLevel)
+
+            fileLogStream = fileLogHandler.stream
+            cronNotify.streams = { "stdout": fileLogStream, "stderr": fileLogStream }
+
+            if configParser.has_option(section, "name"):
+                cronNotify.name = configParser.get(section, "name")
+            if configParser.has_option(section, "cron"):
+                cronNotify.cronExpression = configParser.get(section, "cron")
+            if configParser.has_option(section, "sleep"):
+                cronNotify.sleepTime = configParser.get(section, "sleep")
+
+            meta = {}
+            metaVariables = [
+                ( "notification", "summary" ), ( "notification", "message" ), ( "notification", "icon" ),
+                ( "success", "summary" ), ( "success", "message" ), ( "success", "icon" ),
+                ( "warning", "summary" ), ( "warning", "message" ), ( "warning", "icon" ),
+                ( "failure", "summary" ), ( "failure", "message" ), ( "failure", "icon" )
+            ]
+
+            for group, variable in metaVariables:
+                if configParser.has_option(section, group + "_" + variable):
+                    if group not in meta:
+                        meta[group] = {}
+
+                    meta[group][variable] = configParser.get(section, group + "_" + variable)
+
+            if configParser.has_option(section, "name_tpl") and configParser.has_option(section, "name_tpl_empty"):
+                meta["nameTemplate"] = (
+                    configParser.get(section, "name_tpl_empty"),
+                    configParser.get(section, "name_tpl")
+                )
+
+            cronNotify.meta = meta
+        except ValueError as error:
+            if cronNotify and cronNotify.logger:
+                cronNotify.logger.critical(str(error))
+
+            sys.stderr.write("{}: invalid section '{}': {}\n".format(__app__, section, str(error)))
+            returnCode = 1
+        else:
+            cronNotify.main()
+            notifications.append(cronNotify)
+
+    if len(notifications) == 0:
+        sys.exit(returnCode)
+
+    GObject.MainLoop().run()
+    sys.exit(returnCode)
+except KeyboardInterrupt:
+    sys.exit(130)

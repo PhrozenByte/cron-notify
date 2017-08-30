@@ -1,56 +1,92 @@
-borg-notify
+cron-notify
 ===========
 
-`borg-notify` is a FreeDesktop.org-compatible notification service for [Borg Backup](http://borgbackup.readthedocs.io/).
+`cron-notify` is a FreeDesktop.org-compatible notification service to periodically ask for acknowledgement before executing a cronjob. It is often used for backup software and was previously known as `borg-notify`, referring to its original purpose as a notification service for [Borg Backup](http://borgbackup.readthedocs.io/).
 
 Install
 -------
 
-You can find the list of Python packages `borg-notify` depends on in the `requirements.txt`. However, please note that PyGObject explicitly disallows building itself using `distutils`. You aren't required to use PyPI in general, you will likely find the required Python packages in the package sources of your distribution. If you e.g. use Debian Jessie, you will have to install the `python3-croniter`, `python3-dbus`, `python3-gi`, `python3-notify2` and `python3-xdg` packages (or their Python 2 equivalents).
+You can find the list of Python packages `cron-notify` depends on in the `requirements.txt`. However, please note that PyGObject explicitly disallows building itself using `distutils`. You aren't required to use PyPI in general, you will likely find the required Python packages in the package sources of your distribution. If you e.g. use Debian Jessie, you will have to install the `python3-croniter`, `python3-dbus`, `python3-gi`, `python3-notify2` and `python3-xdg` packages (or their Python 2 equivalents).
 
-`borg-notify` works with both Python 2 and Python 3. It was tested with Python 2.7 and 3.4 under Debian Jessie, however, it *should* work with any other distribution. If not, please don't hesitate to open a new [Issue on GitHub](https://github.com/PhrozenByte/borg-notify/issues).
+`cron-notify` works with both Python 2 and Python 3. It was tested with Python 2.7 and 3.4 under Debian Jessie, however, it *should* work with any other distribution. If not, please don't hesitate to open a new [Issue on GitHub](https://github.com/PhrozenByte/cron-notify/issues).
 
 Usage
 -----
 
 ```
-$ borg-notify --help
-usage: borg-notify [OPTION]... COMMAND...
+$ cron-notify --help
+usage: cron-notify [OPTION]... [CONFIG]...
 
-Send a desktop notification every CRON_EXPRESSION to inform the user that a
-backup is on schedule. If the user decides to start the backup, execute
-COMMAND.
+cron-notify is a FreeDesktop.org-compatible notification service to
+periodically ask for acknowledgement before executing a cronjob. It is often
+used for backup software.
+
+Arguments:
+  CONFIG                File to read configuration from. You can either
+                        specify a filename ('config.ini'), a absolute path
+                        ('/path/to/config.ini'), or a relative path
+                        ('./config.ini'). By specifying a filename, cron-
+                        notify searches for a accordingly named file in the
+                        configuration search path of 'cron-notify' as
+                        specified by the XDG Base Directory specification
+                        (e.g. '~/.config/cron-notify/'). Defaults to 'cron-
+                        notify.ini'
 
 Application options:
-  COMMAND               command to execute when creating a backup
-  -f, --force           force a immediate backup and exit
-  -r, --reset           reset the last execution time of this backup command
-                        and exit
-  -i NAME, --info NAME  optional name for this backup
-  -c CRON_EXPRESSION, --cron CRON_EXPRESSION
-                        crontab-like schedule definition (defaults to every
-                        day at 8:00, i.e. "0 8 * * *")
-  -s SECONDS, --sleep SECONDS
-                        time to sleep when the user dismisses the notification
-                        (in seconds, defaults to 1 hour, i.e. 3600)
-  -v, --verbose         explain what is being done
+  --critical            Work on log level CRITICAL
+  --error               Work on log level ERROR
+  -q, --quiet, --warning
+                        Work on log level WARNING
+  --info                Work on log level INFO (default)
+  -v, --verbose, --debug
+                        Work on log level DEBUG
 
 Help options:
-  --help                display this help and exit
-  --version             output version information and exit
+  --help                Display this help message and exit
+  --version             Output version information and exit
+
+Please report bugs using GitHub at <https://github.com/PhrozenByte/cron-
+notify>. Besides, you will find general help and information about cron-notify
+there.
 ```
 
----
+Config
+------
 
-`borg-notify-conf` reads its configuration from `~/.config/borg-notify/borg-notify.ini`:
+`cron-notify` reads its config from `cron-notify.ini` in `~/.config/cron-notify/` by default. A config file for Borg Backup might look like the following:
 
 ```ini
+[DEFAULT]
+app = borg-notify
+name_tpl = Borg Backup "{}"
+name_tpl_empty = Borg Backup
+
+notification_summary = Borg Backup
+notification_message = It's time to backup your data! Your next {} is on schedule.
+notification_icon = borg
+
+success_summary = Borg Backup
+success_message = Your recent {} was successful. Yay!
+success_icon = borg
+
+warning_summary = Borg Backup
+warning_message = Your recent {} finished with warnings. 
+    This might not be a problem, but you should check your logs.
+warning_icon = borg
+
+failure_summary = Borg Backup
+failure_message = Your recent {} failed due to a misconfiguration. 
+    Check your logs, your backup didn't run!
+failure_icon = dialog-error
+
 [lunch-backup]
-command = ~/bin/borg-lunch-backup
+command = borg-lunch-backup
 name = Lunch Backup
 cron = 30 12 * * *
 sleep = 1800
 ```
+
+In the above example, `cron-notify` shows a notification every day at 12:30 (`cron = 30 12 * * *`), asking the user to start or skip the "Lunch Backup" (`name = Lunch Backup`). If the system is currently not on main power, the notification is deferred until it is on main power. If the user dismisses/ignores this notification, `cron-notify` shows it half an hour (1800 seconds; `sleep = 1800`) later again. If the user decides to start the backup, `cron-notify` executes `borg-lunch-backup` (`command = borg-lunch-backup`). If the command returns the special exit status 75 (`EX_TEMPFAIL`), `cron-notify` treats it as if the user dismissed the notification. Any other exit status yields a appropiate status notification. As usual, exit status 0 indicates success, whereas any nonzero exit status indicates some sort of failure. The special exit status 254 indicates that the action was taken, but something non-essential went wrong ("finished with warnings").
 
 License & Copyright
 -------------------

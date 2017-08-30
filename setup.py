@@ -7,13 +7,14 @@ with open("LICENSE") as f:
     license = f.read()
 
 setup(
-    name="borg_notify",
+    name="cron_notify",
     version="1.0.0",
-    description="FreeDesktop.org-compatible notification service for Borg Backup.",
+    description="FreeDesktop.org-compatible notification service to periodically ask for " +
+        "acknowledgement before executing a cronjob. It is often used for backup software.",
     long_description=readme,
     author="Daniel Rudolf",
-    url="https://github.com/PhrozenByte/borg-notify",
+    url="https://github.com/PhrozenByte/cron-notify",
     license=license,
-    py_modules=[ "backup_notify", "borg_notify" ],
-    scripts=[ "borg-notify", "borg-notify-conf" ]
+    py_modules=[ "cron_notify" ],
+    scripts=[ "cron-notify" ]
 )

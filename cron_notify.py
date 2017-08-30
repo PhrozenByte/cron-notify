@@ -9,27 +9,28 @@ except ImportError:
 
 __version__ = "1.0.0"
 
-class BackupNotify(object):
+class CronNotify(object):
     _STATUS_SUCCESS = 0
-    _STATUS_WARNING = 1
-    _STATUS_ERROR = 2
+    _STATUS_TRY_AGAIN = 1
+    _STATUS_WARNING = 2
+    _STATUS_ERROR = 3
 
-    _app = "backup-notify"
+    _app = "cron-notify"
 
     _id = None
     _commands = None
-    _blocking = True
+    _async = True
 
     _name = None
     _cronExpression = "0 8 * * *"
     _sleepTime = 3600
 
-    _cachePath = None
+    _cacheFile = None
 
     _lastExecution = None
     _nextExecution = None
 
-    _backupId = 0
+    _executionId = 0
     _lock = None
 
     _bus = None
@@ -42,43 +43,53 @@ class BackupNotify(object):
     _notificationTimeoutId = None
     _notificationTimeoutTime = None
 
-    _backupStreams = { "stdin": None, "stdout": None, "stderr": None }
+    _streams = { "stdin": None, "stdout": None, "stderr": None }
 
     _logger = None
 
-    _backupName = ( "backup", 'backup "{}"' )
+    _nameTemplate = ( "cronjob", 'cronjob "{}"' )
     _notificationData = {
-        "summary": "Backup",
-        "message": "It's time to backup your data! Your next {} is on schedule.",
+        "summary": "cron-notify",
+        "message": "It's time to execute {}!",
         "icon": "appointment-soon"
     }
     _statusNotificationData = {
         _STATUS_SUCCESS: {
-            "summary": "Backup",
+            "summary": "cron-notify",
             "message": "Your recent {} was successful. Yay!",
             "icon": "dialog-information"
         },
         _STATUS_WARNING: {
-            "summary": "Backup",
+            "summary": "cron-notify",
             "message": "Your recent {} finished with warnings. " +
                 "This might not be a problem, but you should check your logs.",
             "icon": "dialog-warning"
         },
         _STATUS_ERROR: {
-            "summary": "Backup",
-            "message": "Your recent {} failed due to a misconfiguration. " +
-                "Check your logs, your backup didn't run!",
+            "summary": "cron-notify",
+            "message": "Your recent {} failed. Check your logs!",
             "icon": "dialog-error"
         }
     }
 
-    def __init__(self, commands, blocking=True):
+    def __init__(self, commands, app=None, id=None, async=False):
         if not commands or len(commands) == 0:
             raise ValueError("Invalid commands given")
 
-        self._id = hashlib.sha1(str(commands).encode("utf-8")).hexdigest()
+        if app is not None:
+            if not re.match("^[\w.-]*$", app):
+                raise ValueError("Invalid app given")
+            self._app = app
+
+        if id is not None:
+            if not re.match("^[\w.-]*$", id):
+                raise ValueError("Invalid id given")
+            self._id = id
+        else:
+            self._id = hashlib.sha1(str(commands).encode("utf-8")).hexdigest()
+
         self._commands = commands
-        self._blocking = blocking
+        self._async = async
 
         logHandler = logging.StreamHandler(stream=sys.stderr)
         logHandler.setFormatter(logging.Formatter("%(asctime)s: %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"))
@@ -87,20 +98,17 @@ class BackupNotify(object):
         self._logger.addHandler(logHandler)
         self._logger.setLevel(logging.WARNING)
 
-        self._cachePath = BaseDirectory.save_cache_path(self._app)
+        self._cacheFile = BaseDirectory.save_cache_path(self._app) + "/" + self._id
 
         self._lock = threading.Lock()
 
     @property
+    def app(self):
+        return self._app
+
+    @property
     def id(self):
         return self._id
-
-    @id.setter
-    def id(self, id):
-        id = str(id)
-        if not re.match("^[\w.-]*$", id):
-            raise ValueError("Invalid id given")
-        self._id = id
 
     @property
     def name(self):
@@ -128,27 +136,52 @@ class BackupNotify(object):
         self._sleepTime = int(sleepTime)
 
     @property
-    def backupStreams(self):
-        return self._backupStreams
+    def streams(self):
+        return self._streams
 
-    @backupStreams.setter
-    def backupStreams(self, backupStreams):
-        self._backupStreams = {
-            "stdin": backupStreams.get("stdin"),
-            "stdout": backupStreams.get("stdout"),
-            "stderr": backupStreams.get("stderr")
+    @streams.setter
+    def streams(self, streams):
+        self._streams = {
+            "stdin": streams.get("stdin"),
+            "stdout": streams.get("stdout"),
+            "stderr": streams.get("stderr")
         }
+
+    @property
+    def meta(self):
+        return {
+            "nameTemplate": self._nameTemplate,
+            "notification": self._notificationData,
+            "success": self._statusNotificationData[self._STATUS_SUCCESS],
+            "warning": self._statusNotificationData[self._STATUS_WARNING],
+            "failure": self._statusNotificationData[self._STATUS_ERROR]
+        }
+
+    @meta.setter
+    def meta(self, meta):
+        if "nameTemplate" in meta:
+            self._nameTemplate = meta.get("nameTemplate")
+        if "notification" in meta:
+            self._notificationData.update(meta.get("notification"))
+        if "success" in meta:
+            self._statusNotificationData[self._STATUS_SUCCESS].update(meta.get("success"))
+        if "warning" in meta:
+            self._statusNotificationData[self._STATUS_WARNING].update(meta.get("warning"))
+        if "failure" in meta:
+            self._statusNotificationData[self._STATUS_ERROR].update(meta.get("failure"))
 
     @property
     def logger(self):
         return self._logger
 
     def main(self):
+        self._logger.info("Initializing...")
+
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
         self._bus = dbus.SystemBus()
         if not self._bus:
-            self._logger.error("Failed to initialize DBus system bus")
+            self._logger.critical("Failed to initialize DBus system bus")
             raise RuntimeError("Failed to initialize DBus system bus")
 
         self._initNotificationService()
@@ -159,31 +192,45 @@ class BackupNotify(object):
     def resetCache(self):
         try:
             self._logger.info("Resetting cache...")
-            os.remove(self._cachePath + "/" + self._id)
+            os.remove(self._cacheFile)
         except OSError as error:
             if error.errno != errno.ENOENT:
-                self._logger.error(
+                self._logger.critical(
                     "While resetting the cache, a exception occurred: %s: %s",
                     type(error).__name__,
                     error
                 )
                 raise
 
-    def backup(self, blocking=None):
-        self._backupId += 1
+    def run(self, blocking=None):
+        self._executionId += 1
 
         if blocking is None:
-            blocking = self._blocking
+            blocking = not self._async
+        elif not blocking and not self._async:
+            self._logger.critical("Impossible to run a command both synchronous and non-blocking")
+            raise RuntimeError("Impossible to run a command both synchronous and non-blocking")
 
-        if not blocking:
-            logPrefix = "[#{}] ".format(self._backupId)
-            backupThread = threading.Thread(target=self._backup, kwargs={ "logPrefix": logPrefix })
-            backupThread.start()
+        self.updateLastExecution()
+
+        if self._async:
+            commandThreadArgs = {
+                "executionId": self._executionId,
+                "previousExecution": self._lastExecution,
+                "logPrefix": "[#{}] ".format(self._executionId)
+            }
+
+            commandThread = threading.Thread(target=self._run, kwargs=commandThreadArgs)
+            commandThread.start()
+
+            if blocking:
+                commandThread.join()
+
             return None
         else:
-            return self._backup()
+            return self._run(self._executionId, self._lastExecution)
 
-    def _backup(self, logPrefix=""):
+    def _run(self, executionId, previousExecution, logPrefix=""):
         self._logger.debug("%sAcquiring lock...", logPrefix)
         self._lock.acquire()
 
@@ -192,7 +239,7 @@ class BackupNotify(object):
             self._logger.info("%sExecuting `%s`...", logPrefix, " ".join(command))
 
             try:
-                subprocess.check_call(command, **self._backupStreams)
+                subprocess.check_call(command, **self._streams)
             except OSError as error:
                 if overallStatus < self._STATUS_ERROR:
                     overallStatus = self._STATUS_ERROR
@@ -210,7 +257,7 @@ class BackupNotify(object):
                         " ".join(command)
                     )
                 else:
-                    self._logger.error(
+                    self._logger.critical(
                         "%sExecution of `%s` failed: %s: %s",
                         logPrefix,
                         " ".join(command),
@@ -219,24 +266,50 @@ class BackupNotify(object):
                     )
                     raise
             except subprocess.CalledProcessError as error:
-                if overallStatus < self._STATUS_WARNING:
-                    overallStatus = self._STATUS_WARNING
+                status = self._STATUS_ERROR
+                logLevel = logging.ERROR
 
-                self._logger.warning(
-                    "%sExecution of `%s` failed with exit status %s",
+                if error.returncode == 254:
+                    status = self._STATUS_WARNING
+                    logLevel = logging.WARNING
+                elif error.returncode == 75:
+                    status = self._STATUS_TRY_AGAIN
+                    logLevel = logging.INFO
+
+                if overallStatus < status:
+                    overallStatus = status
+
+                self._logger.log(
+                    logLevel,
+                    "%sExecution of `%s` finished with exit status %s",
                     logPrefix,
                     " ".join(command),
                     error.returncode
                 )
 
-        if overallStatus == self._STATUS_SUCCESS:
-            self._logger.info("%sBackup finished successfully", logPrefix)
-        elif overallStatus == self._STATUS_WARNING:
-            self._logger.warning("%sBackup finished with warnings", logPrefix)
-        elif overallStatus == self._STATUS_ERROR:
-            self._logger.error("%sBackup failed", logPrefix)
+        if overallStatus == self._STATUS_TRY_AGAIN:
+            self._logger.info("%sCommand finished with a temporary error", logPrefix)
 
-        self._showStatusNotification(overallStatus)
+            if executionId == self._executionId:
+                self._logger.info("Resetting cache...")
+                self.updateLastExecution(previousExecution)
+
+                if self._timeoutId is not None:
+                    GObject.source_remove(self._timeoutId)
+
+                    self._timeoutId = None
+                    self._timeoutTime = None
+
+                    self._timeout(0)
+        else:
+            if overallStatus == self._STATUS_SUCCESS:
+                self._logger.info("%sCommand finished successfully", logPrefix)
+            elif overallStatus == self._STATUS_WARNING:
+                self._logger.warning("%sCommand finished with warnings", logPrefix)
+            else:
+                self._logger.error("%sCommand failed", logPrefix)
+
+            self._showStatusNotification(overallStatus)
 
         self._lock.release()
         return overallStatus != self._STATUS_ERROR
@@ -244,13 +317,13 @@ class BackupNotify(object):
     def getLastExecution(self):
         lastExecution = None
         try:
-            with open(self._cachePath + "/" + self._id, "rt") as cacheFile:
+            with open(self._cacheFile, "rt") as cacheFile:
                 lastExecutionTime = cacheFile.read(20)
                 if lastExecutionTime:
                     lastExecution = datetime.datetime.fromtimestamp(int(lastExecutionTime))
         except IOError as error:
             if error.errno != errno.ENOENT:
-                self._logger.error(
+                self._logger.critical(
                     "While reading the last execution time, a exception occurred: %s: %s",
                     type(error).__name__,
                     error
@@ -259,13 +332,20 @@ class BackupNotify(object):
 
         return lastExecution
 
-    def getNextExecution(self, lastExecution):
+    def getNextExecution(self, lastExecution=None):
+        if lastExecution is None:
+            lastExecution = datetime.datetime.today()
+
         nextExecutionCroniter = croniter.croniter(self._cronExpression, lastExecution)
         return nextExecutionCroniter.get_next(datetime.datetime)
 
-    def updateLastExecution(self):
-        with open(self._cachePath + "/" + self._id, "wt") as cacheFile:
-            timestamp = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
+    def updateLastExecution(self, lastExecution=None):
+        if lastExecution is None:
+            lastExecution = datetime.datetime.today()
+
+        with open(self._cacheFile, "wt") as cacheFile:
+            timezoneOffset = datetime.datetime.utcnow() - datetime.datetime.today()
+            timestamp = int((lastExecution + timezoneOffset - datetime.datetime(1970, 1, 1)).total_seconds())
             cacheFile.write(str(timestamp))
 
     def _monitorResuming(self):
@@ -325,29 +405,33 @@ class BackupNotify(object):
                         self._resetNotification()
                         self._timeout(0)
         except Exception as error:
-            borgNotify.logger.error("%s: %s", type(error).__name__, error)
+            self.logger.critical("%s: %s", type(error).__name__, error)
             raise
 
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
-        if self._lastExecution is not None:
+
+        if self._lastExecution is None and self._nextExecution is not None:
+            nextExecution = self._nextExecution
+        else:
             nextExecution = self.getNextExecution(self._lastExecution)
-            timeDifference = int((nextExecution - datetime.datetime.today()).total_seconds())
 
-            logLevel = logging.DEBUG if nextExecution == self._nextExecution and timeDifference > 0 else logging.INFO
+        timeDifference = int((nextExecution - datetime.datetime.today()).total_seconds())
+
+        logLevel = logging.DEBUG if nextExecution == self._nextExecution and timeDifference > 0 else logging.INFO
+        if self._lastExecution is None:
+            self._logger.log(logLevel, "Command has never been executed")
+        else:
             self._logger.log(logLevel, "Last execution was on %s", self._lastExecution)
-            self._logger.log(logLevel, "Next execution is scheduled for %s", nextExecution)
+        self._logger.log(logLevel, "Next execution is scheduled for %s", nextExecution)
 
-            self._nextExecution = nextExecution
+        self._nextExecution = nextExecution
 
-            if timeDifference > 0:
-                sleepTime = min(timeDifference, 3600)
-                self._timeout(sleepTime)
-                return False
+        if timeDifference > 0:
+            sleepTime = min(timeDifference, 3600)
+            self._timeout(sleepTime)
+            return False
 
-            return True
-
-        self._logger.info("Command has never been executed")
         return True
 
     def _timeout(self, timeout):
@@ -405,7 +489,7 @@ class BackupNotify(object):
 
     def _initNotificationService(self):
         if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
-            self._logger.error("Failed to initialize notification service")
+            self._logger.critical("Failed to initialize notification service")
             raise RuntimeError("Failed to initialize notification service")
 
     def _initNotification(self):
@@ -414,10 +498,10 @@ class BackupNotify(object):
 
         self._logger.debug("Initializing notification...")
 
-        backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
+        name = self._nameTemplate[1].format(self._name) if self._name else self._nameTemplate[0]
 
         notificationData = self._notificationData.copy()
-        notificationData["message"] = notificationData["message"].format(backupName)
+        notificationData["message"] = notificationData["message"].format(name)
 
         self._notification = pynotify.Notification(**notificationData)
 
@@ -456,14 +540,12 @@ class BackupNotify(object):
             self._timeout(self._sleepTime)
             return
         elif self._notificationAction != "ignore":
-            self._logger.info("User requested to %s the backup", self._notificationAction)
-
-            self.updateLastExecution()
+            self._logger.info("User requested to %s the command", self._notificationAction)
 
             if self._notificationAction == "start":
-                self.backup()
-
-        self._logger.debug("Notification closed")
+                self.run()
+            else:
+                self.updateLastExecution()
 
         self._resetNotification()
 
@@ -508,7 +590,7 @@ class BackupNotify(object):
 
             self._timeout(0)
         except Exception as error:
-            borgNotify.logger.error("%s: %s", type(error).__name__, error)
+            self.logger.critical("%s: %s", type(error).__name__, error)
             raise
 
         return False
@@ -519,10 +601,10 @@ class BackupNotify(object):
         if not pynotify.is_initted():
             self._initNotificationService()
 
-        backupName = self._backupName[1].format(self._name) if self._name else self._backupName[0]
+        name = self._nameTemplate[1].format(self._name) if self._name else self._nameTemplate[0]
 
         notificationData = self._statusNotificationData[status].copy()
-        notificationData["message"] = notificationData["message"].format(backupName)
+        notificationData["message"] = notificationData["message"].format(name)
 
         notification = pynotify.Notification(**notificationData)
         notification.set_urgency(pynotify.URGENCY_NORMAL)
@@ -543,7 +625,7 @@ class BackupNotify(object):
             self._logger.warning("DBus interface died, re-initializing...")
             self._initNotificationService()
         except Exception as error:
-            self._logger.error(
+            self._logger.critical(
                 "While sending a notification, a exception occurred: %s: %s",
                 type(error).__name__,
                 error
