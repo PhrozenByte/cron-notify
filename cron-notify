@@ -120,6 +120,8 @@ try:
                 cronNotify.cronExpression = configParser.get(section, "cron")
             if configParser.has_option(section, "sleep"):
                 cronNotify.sleepTime = configParser.get(section, "sleep")
+            if configParser.has_option(section, "power"):
+                cronNotify.mainPower = configParser.getboolean(section, "power")
 
             meta = {}
             metaVariables = [

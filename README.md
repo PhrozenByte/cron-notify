@@ -84,9 +84,10 @@ command = borg-lunch-backup
 name = Lunch Backup
 cron = 30 12 * * *
 sleep = 1800
+power = yes
 ```
 
-In the above example, `cron-notify` shows a notification every day at 12:30 (`cron = 30 12 * * *`), asking the user to start or skip the "Lunch Backup" (`name = Lunch Backup`). If the system is currently not on main power, the notification is deferred until it is on main power. If the user dismisses/ignores this notification, `cron-notify` shows it half an hour (1800 seconds; `sleep = 1800`) later again. If the user decides to start the backup, `cron-notify` executes `borg-lunch-backup` (`command = borg-lunch-backup`). If the command returns the special exit status 75 (`EX_TEMPFAIL`), `cron-notify` treats it as if the user dismissed the notification. Any other exit status yields a appropiate status notification. As usual, exit status 0 indicates success, whereas any nonzero exit status indicates some sort of failure. The special exit status 254 indicates that the action was taken, but something non-essential went wrong ("finished with warnings").
+In the above example, `cron-notify` shows a notification every day at 12:30 (`cron = 30 12 * * *`), asking the user to start or skip the "Lunch Backup" (`name = Lunch Backup`). If the system is currently not on main power, the notification is deferred until it is on main power (`power = yes`). If the user dismisses/ignores this notification, `cron-notify` shows it half an hour (1800 seconds; `sleep = 1800`) later again. If the user decides to start the backup, `cron-notify` executes `borg-lunch-backup` (`command = borg-lunch-backup`). If the command returns the special exit status 75 (`EX_TEMPFAIL`), `cron-notify` treats it as if the user dismissed the notification. Any other exit status yields a appropiate status notification. As usual, exit status 0 indicates success, whereas any nonzero exit status indicates some sort of failure. The special exit status 254 indicates that the action was taken, but something non-essential went wrong ("finished with warnings").
 
 License & Copyright
 -------------------

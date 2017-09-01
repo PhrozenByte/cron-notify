@@ -24,6 +24,7 @@ class CronNotify(object):
     _name = None
     _cronExpression = "0 8 * * *"
     _sleepTime = 3600
+    _mainPower = False
 
     _cacheFile = None
 
@@ -134,6 +135,14 @@ class CronNotify(object):
     @sleepTime.setter
     def sleepTime(self, sleepTime):
         self._sleepTime = int(sleepTime)
+
+    @property
+    def mainPower(self):
+        return self._mainPower
+
+    @mainPower.setter
+    def mainPower(self, mainPower):
+        self._mainPower = not not mainPower
 
     @property
     def streams(self):
@@ -394,7 +403,7 @@ class CronNotify(object):
     def _wait(self):
         try:
             if self._waitUntilScheduled():
-                if self._waitUntilMainPower():
+                if not self._mainPower or self._waitUntilMainPower():
                     self._initNotification()
 
                     self._notificationTimeout(self._sleepTime)
