@@ -16,4 +16,5 @@ desktop.ini
 
 # Python distutils
 /build
+MANIFEST
 files.txt
