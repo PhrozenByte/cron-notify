@@ -13,6 +13,7 @@ setup(
         "acknowledgement before executing a cronjob. It is often used for backup software.",
     long_description=readme,
     author="Daniel Rudolf",
+    author_email="cron-notify@daniel-rudolf.de",
     url="https://github.com/PhrozenByte/cron-notify",
     license=license,
     py_modules=[ "cron_notify" ],
