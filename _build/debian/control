@@ -1,0 +1,17 @@
+Source: cron-notify
+Section: python
+Priority: optional
+Maintainer: Daniel Rudolf <cron-notify@daniel-rudolf.de>
+Homepage: https://github.com/PhrozenByte/cron-notify
+Vcs-Browser: https://github.com/PhrozenByte/cron-notify
+Vcs-Git: https://github.com/PhrozenByte/cron-notify.git
+Build-Depends: dh-python, python3-all, debhelper (>= 9)
+X-Python3-Version: >= 3.2
+Standards-Version: 3.9.6
+
+Package: cron-notify
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${python3:Depends}, python3-croniter, python3-dbus, python3-gi, python3-notify2, python3-xdg
+Description: cron-notify
+ cron-notify is a FreeDesktop.org-compatible notification service to periodically ask for acknowledgement before executing a cronjob. It is often used for backup software and was previously known as borg-notify, referring to its original purpose as a notification service for Borg Backup.

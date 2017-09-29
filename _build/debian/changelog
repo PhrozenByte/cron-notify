@@ -1,0 +1,5 @@
+cron-notify (1.0.0-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Daniel Rudolf <cron-notify@daniel-rudolf.de>  Fri, 29 Sep 2017 23:57:34 +0200
