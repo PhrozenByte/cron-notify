@@ -77,8 +77,8 @@ try:
                 configFile = configFileName
             else:
                 for configPath in configPaths:
-                    if os.path.isfile(configPath + "/" + configFile):
-                        configFile = configPath + "/" + configFile
+                    if os.path.isfile(configPath + "/" + configFileName):
+                        configFile = configPath + "/" + configFileName
                         break
 
                 if not configFile:
