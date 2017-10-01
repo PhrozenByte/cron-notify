@@ -82,7 +82,7 @@ try:
                         break
 
                 if not configFile:
-                    raise IOError(2, "No such file or directory", configFile)
+                    raise IOError(2, "No such file or directory", configFileName)
 
             configParser.readfp(open(configFile))
     except IOError as error:
