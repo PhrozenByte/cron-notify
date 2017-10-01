@@ -420,18 +420,16 @@ class CronNotify(object):
     def _waitUntilScheduled(self):
         self._lastExecution = self.getLastExecution()
 
-        if self._lastExecution is None and self._nextExecution is not None:
-            nextExecution = self._nextExecution
-        else:
-            nextExecution = self.getNextExecution(self._lastExecution)
+        if self._lastExecution is None:
+            self._logger.info("Command has never been executed")
+            self._nextExecution = datetime.datetime.today()
+            return True
 
+        nextExecution = self.getNextExecution(self._lastExecution)
         timeDifference = int((nextExecution - datetime.datetime.today()).total_seconds())
 
         logLevel = logging.DEBUG if nextExecution == self._nextExecution and timeDifference > 0 else logging.INFO
-        if self._lastExecution is None:
-            self._logger.log(logLevel, "Command has never been executed")
-        else:
-            self._logger.log(logLevel, "Last execution was on %s", self._lastExecution)
+        self._logger.log(logLevel, "Last execution was on %s", self._lastExecution)
         self._logger.log(logLevel, "Next execution is scheduled for %s", nextExecution)
 
         self._nextExecution = nextExecution
