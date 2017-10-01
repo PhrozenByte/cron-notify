@@ -23,5 +23,4 @@ cd ../../..
 PACKAGE="$(find _build/dist -mindepth 1 -maxdepth 1 -name 'cron-notify_*_all.deb')"
 
 echo
-echo "Success!"
-echo "Run \`dpkg -i \"$PACKAGE\"\` to install the package..."
+echo "Success! Run \`dpkg -i \"$PACKAGE\"\` to install the package..."

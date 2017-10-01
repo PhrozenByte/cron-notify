@@ -13,5 +13,7 @@ Package: cron-notify
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}, ${python3:Depends}, python3-croniter, python3-dbus, python3-gi, python3-notify2, python3-xdg
-Description: cron-notify
- cron-notify is a FreeDesktop.org-compatible notification service to periodically ask for acknowledgement before executing a cronjob. It is often used for backup software and was previously known as borg-notify, referring to its original purpose as a notification service for Borg Backup.
+Description: cron-like daemon with notification support
+ cron-notify is a FreeDesktop.org-compatible notification service to periodically ask for acknowledgement before executing a cronjob.
+ .
+ It is often used for backup software and was previously known as borg-notify, referring to its original purpose as a notification service for Borg Backup.
