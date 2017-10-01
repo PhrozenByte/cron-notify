@@ -6,9 +6,11 @@ cron-notify
 Install
 -------
 
-You can find the list of Python packages `cron-notify` depends on in the `requirements.txt`. However, please note that PyGObject explicitly disallows building itself using `distutils`. You aren't required to use PyPI in general, you will likely find the required Python packages in the package sources of your distribution. If you e.g. use Debian Jessie, you will have to install the `python3-croniter`, `python3-dbus`, `python3-gi`, `python3-notify2` and `python3-xdg` packages (or their Python 2 equivalents).
+You can find the list of Python packages `cron-notify` depends on in the `requirements.txt`. However, please note that PyGObject explicitly disallows building itself using `distutils`. You aren't required to use PyPI in general, you will likely find the required Python packages in the package sources of your distribution. If you e.g. use Debian, you will have to install the `python3-croniter`, `python3-dbus`, `python3-gi`, `python3-notify2` and `python3-xdg` packages (or their Python 2 equivalents).
 
-`cron-notify` works with both Python 2 and Python 3. It was tested with Python 2.7 and 3.4 under Debian Jessie, however, it *should* work with any other distribution. If not, please don't hesitate to open a new [Issue on GitHub](https://github.com/PhrozenByte/cron-notify/issues).
+`cron-notify` works with both Python 2 and Python 3. It was tested with Python 2.7, 3.4 and 3.5 on Debian, however, it *should* work with any other distribution. If not, please don't hesitate to open a new [Issue on GitHub](https://github.com/PhrozenByte/cron-notify/issues).
+
+On Debian-based distributions you can build a `.deb` using the provided `_build/builddeb.sh` script (build dependencies: `build-essential`, `fakeroot` and `python3-all`).
 
 Usage
 -----
