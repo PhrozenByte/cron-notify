@@ -207,7 +207,7 @@ class CronNotify(object):
                 self._logger.critical(
                     "While resetting the cache, a exception occurred: %s: %s",
                     type(error).__name__,
-                    error
+                    str(error)
                 )
                 raise
 
@@ -271,7 +271,7 @@ class CronNotify(object):
                         logPrefix,
                         " ".join(command),
                         type(error).__name__,
-                        error
+                        str(error)
                     )
                     raise
             except subprocess.CalledProcessError as error:
@@ -335,7 +335,7 @@ class CronNotify(object):
                 self._logger.critical(
                     "While reading the last execution time, a exception occurred: %s: %s",
                     type(error).__name__,
-                    error
+                    str(error)
                 )
                 raise
 
@@ -414,7 +414,7 @@ class CronNotify(object):
                         self._resetNotification()
                         self._timeout(0)
         except Exception as error:
-            self.logger.critical("%s: %s", type(error).__name__, error)
+            self.logger.critical("%s: %s", type(error).__name__, str(error))
             raise
 
     def _waitUntilScheduled(self):
@@ -597,7 +597,7 @@ class CronNotify(object):
 
             self._timeout(0)
         except Exception as error:
-            self.logger.critical("%s: %s", type(error).__name__, error)
+            self.logger.critical("%s: %s", type(error).__name__, str(error))
             raise
 
         return False
@@ -635,7 +635,7 @@ class CronNotify(object):
             self._logger.critical(
                 "While sending a notification, a exception occurred: %s: %s",
                 type(error).__name__,
-                error
+                str(error)
             )
             raise
 
