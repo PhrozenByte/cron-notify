@@ -518,7 +518,8 @@ class CronNotify(object):
 
         self._notification.add_action("start", "Start", self._notificationCallback)
         self._notification.add_action("skip", "Skip", self._notificationCallback)
-        self._notification.add_action("default", "Not Now", self._notificationCallback)
+        self._notification.add_action("later", "Later", self._notificationCallback)
+        self._notification.add_action("default", "", self._notificationCallback)
         self._notification.connect("closed", self._notificationCloseCallback)
 
     def _resetNotification(self):
@@ -541,6 +542,8 @@ class CronNotify(object):
 
         if self._notificationAction is None:
             self._logger.info("User dismissed the notification")
+        elif self._notificationAction == "later":
+            self._logger.info("User requested to notify again later")
 
             self._resetNotification()
 
