@@ -1,3 +1,26 @@
+""" cron-notify
+
+FreeDesktop.org-compatible notification service to periodically ask for
+acknowledgement before executing a cronjob. It is often used for backup
+software.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 of the License only.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
+__version__ = "1.0.0"
+
+__copyright__ = "Copyright (C) 2016-2017 Daniel Rudolf"
+__license__ = "GPL-3"
+
 import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys, threading
 from gi.repository import GObject
 from xdg import BaseDirectory
@@ -6,8 +29,6 @@ try:
     import pynotify
 except ImportError:
     import notify2 as pynotify
-
-__version__ = "1.0.0"
 
 class CronNotify(object):
     _STATUS_SUCCESS = 0
