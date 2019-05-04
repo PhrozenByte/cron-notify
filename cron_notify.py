@@ -414,7 +414,7 @@ class CronNotify(object):
                         self._resetNotification()
                         self._timeout(0)
         except Exception as error:
-            self.logger.critical("%s: %s", type(error).__name__, str(error))
+            self.logger.critical("%s: %s", type(error).__name__, str(error), exc_info=True)
             raise
 
     def _waitUntilScheduled(self):
@@ -600,7 +600,7 @@ class CronNotify(object):
 
             self._timeout(0)
         except Exception as error:
-            self.logger.critical("%s: %s", type(error).__name__, str(error))
+            self.logger.critical("%s: %s", type(error).__name__, str(error), exc_info=True)
             raise
 
         return False
@@ -638,7 +638,8 @@ class CronNotify(object):
             self._logger.critical(
                 "While sending a notification, a exception occurred: %s: %s",
                 type(error).__name__,
-                str(error)
+                str(error),
+                exc_info=True
             )
             raise
 
