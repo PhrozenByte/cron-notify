@@ -16,9 +16,9 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.3"
 
-__copyright__ = "Copyright (C) 2016-2017 Daniel Rudolf"
+__copyright__ = "Copyright (C) 2016-2019 Daniel Rudolf"
 __license__ = "GPL-3"
 
 import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys, threading
