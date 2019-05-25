@@ -56,6 +56,8 @@ class CronNotify(object):
     _lock = None
 
     _bus = None
+    _resumeSignal = None
+    _batterySignal = None
 
     _timeoutId = None
     _timeoutTime = None
@@ -382,7 +384,7 @@ class CronNotify(object):
         try:
             self._logger.info("Registering system suspend/hibernate callback...")
 
-            self._bus.add_signal_receiver(
+            self._resumeSignal = self._bus.add_signal_receiver(
                 self._resumeCallback,
                 dbus_interface="org.freedesktop.login1.Manager",
                 signal_name="PrepareForSleep",
@@ -486,7 +488,7 @@ class CronNotify(object):
             self._logger.info("System is currently on %s power", (onBattery and "battery" or "main"))
 
             if onBattery:
-                self._bus.add_signal_receiver(
+                self._batterySignal = self._bus.add_signal_receiver(
                     self._batteryCallback,
                     dbus_interface="org.freedesktop.DBus.Properties",
                     signal_name="PropertiesChanged",
@@ -505,12 +507,7 @@ class CronNotify(object):
     def _batteryCallback(self, interfaceName, changedProperties, invalidatedProperties):
         if "OnBattery" in changedProperties:
             if not changedProperties["OnBattery"]:
-                self._bus.remove_signal_receiver(
-                    self._batteryCallback,
-                    dbus_interface="org.freedesktop.DBus.Properties",
-                    signal_name="PropertiesChanged",
-                    path="/org/freedesktop/UPower"
-                )
+                self._batterySignal.remove()
 
                 self._logger.info("System is now connected to main power")
                 self._wait()
