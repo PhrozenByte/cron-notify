@@ -47,6 +47,8 @@ class CronNotify(object):
     _sleepTime = 3600
     _mainPower = False
 
+    _bypassMainPower = False
+
     _cacheFile = None
 
     _lastExecution = None
@@ -426,7 +428,7 @@ class CronNotify(object):
     def _wait(self):
         try:
             if self._waitUntilScheduled():
-                if not self._mainPower or self._waitUntilMainPower():
+                if self._waitUntilMainPower():
                     self._initNotification()
 
                     self._notificationTimeout(self._sleepTime)
@@ -482,6 +484,13 @@ class CronNotify(object):
         return False
 
     def _waitUntilMainPower(self):
+        if self._bypassMainPower:
+            self._bypassMainPower = False
+            return True
+
+        if not self._mainPower:
+            return True
+
         try:
             upower = self._bus.get_object("org.freedesktop.UPower", "/org/freedesktop/UPower")
             onBattery = upower.Get("org.freedesktop.UPower", "OnBattery", dbus_interface=dbus.PROPERTIES_IFACE)
@@ -560,6 +569,8 @@ class CronNotify(object):
 
         if self._notificationAction is None:
             self._logger.info("User dismissed the notification")
+
+            self._bypassMainPower = True
         elif self._notificationAction == "later":
             self._logger.info("User requested to notify again later")
 
