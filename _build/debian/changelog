@@ -1,3 +1,11 @@
+cron-notify (1.0.4-1) unstable; urgency=low
+
+  * Properly remove DBus battery signal
+  * Bypass main power check when dismissing the notification
+
+-- Daniel Rudolf <cron-notify@daniel-rudolf.de>  Sat, 25 May 2019 21:58:43 +0200
+
+
 cron-notify (1.0.3-1) unstable; urgency=low
 
   * Rename default notification action to "Later", default action re-issues notification
