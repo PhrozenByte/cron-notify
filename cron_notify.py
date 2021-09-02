@@ -18,7 +18,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __version__ = "1.0.4"
 
-__copyright__ = "Copyright (C) 2016-2019 Daniel Rudolf"
+__copyright__ = "Copyright (C) 2016-2021 Daniel Rudolf"
 __license__ = "GPL-3"
 
 import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys, threading
