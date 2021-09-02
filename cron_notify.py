@@ -98,7 +98,7 @@ class CronNotify(object):
         }
     }
 
-    def __init__(self, commands, app=None, id=None, async=False):
+    def __init__(self, commands, app=None, id=None, runAsync=False):
         if not commands or len(commands) == 0:
             raise ValueError("Invalid commands given")
 
@@ -115,7 +115,7 @@ class CronNotify(object):
             self._id = hashlib.sha1(str(commands).encode("utf-8")).hexdigest()
 
         self._commands = commands
-        self._async = async
+        self._async = runAsync
 
         logHandler = logging.StreamHandler(stream=sys.stderr)
         logHandler.setFormatter(logging.Formatter("%(asctime)s: %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"))

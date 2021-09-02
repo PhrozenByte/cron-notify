@@ -119,7 +119,7 @@ try:
             app = configParser.get(section, "app") if configParser.has_option(section, "app") else None
             command = shlex.split(configParser.get(section, "command"))
 
-            cronNotify = cron_notify.CronNotify([ command ], app=app, id=section, async=True)
+            cronNotify = cron_notify.CronNotify([ command ], app=app, id=section, runAsync=True)
 
             fileLogPath = BaseDirectory.save_cache_path(cronNotify.app) + "/" + cronNotify.id + ".log"
             fileLogHandler = logging.FileHandler(fileLogPath)
