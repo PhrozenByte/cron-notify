@@ -3,7 +3,7 @@ Upstream-Name: cron-notify
 Source: https://github.com/PhrozenByte/cron-notify
 
 Files: *
-Copyright: 2016-2017 Daniel Rudolf <cron-notify@daniel-rudolf.de>
+Copyright: 2016-2024 Daniel Rudolf <cron-notify@daniel-rudolf.de>
 License: GPL-3
  This program is free software: you can redistribute it
  and/or modify it under the terms of the GNU General Public

@@ -4,6 +4,8 @@ FreeDesktop.org-compatible notification service to periodically ask for
 acknowledgement before executing a cronjob. It is often used for backup
 software.
 
+Copyright (C) 2016-2024 Daniel Rudolf
+
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
 Foundation, version 3 of the License only.
@@ -18,7 +20,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 __version__ = "1.0.5"
 
-__copyright__ = "Copyright (C) 2016-2021 Daniel Rudolf"
+__copyright__ = "Copyright (C) 2016-2024 Daniel Rudolf"
 __license__ = "GPL-3"
 
 import croniter, datetime, dbus, dbus.mainloop.glib, errno, hashlib, logging, os, re, subprocess, sys, threading
