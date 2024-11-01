@@ -20,4 +20,5 @@ MANIFEST
 files.txt
 
 # Build system
+/_build/arch
 /_build/dist
