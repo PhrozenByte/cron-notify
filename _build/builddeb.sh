@@ -1,15 +1,15 @@
 #!/bin/bash
-set -e
+set -eu -o pipefail
 cd "$(dirname "$0")/.."
 
 # create Python source distribution
-[ ! -d _build/dist ] || rm -rf _build/dist
+[ ! -e _build/dist ] || { [ -d _build/dist ] && rm -rf _build/dist ; }
 python3 setup.py sdist --dist-dir _build/dist
 
 # Debianize source distribution
 cd _build/dist
 VERSION="$(find . -mindepth 1 -maxdepth 1 -name 'cron_notify-*.tar.gz' \
-    | sed -e 's/^\.\/cron_notify-\(.*\)\.tar\.gz$/\1/g')"
+    | sed -e '1 s/^\.\/cron_notify-\(.*\)\.tar\.gz$/\1/g')"
 ln -s "cron_notify-$VERSION.tar.gz" "cron-notify_$VERSION.orig.tar.gz"
 tar xfz "cron_notify-$VERSION.tar.gz"
 cp -R ../debian "cron_notify-$VERSION"
