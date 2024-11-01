@@ -19,7 +19,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 import cron_notify
 import argparse, logging, os, shlex, sys
-from gi.repository import GObject
+from gi.repository import GLib
 from xdg import BaseDirectory
 
 try:
@@ -102,7 +102,7 @@ try:
                 if not configFile:
                     raise IOError(2, "No such file or directory", configFileName)
 
-            configParser.readfp(open(configFile))
+            configParser.read_file(open(configFile))
     except IOError as error:
         sys.stderr.write("{}: unable to load config file: {}\n".format(__app__, str(error)))
         sys.exit(1)
@@ -176,7 +176,7 @@ try:
     if len(notifications) == 0:
         sys.exit(returnCode)
 
-    GObject.MainLoop().run()
+    GLib.MainLoop().run()
     sys.exit(returnCode)
 except KeyboardInterrupt:
     sys.exit(130)

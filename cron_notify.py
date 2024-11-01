@@ -103,12 +103,12 @@ class CronNotify(object):
             raise ValueError("Invalid commands given")
 
         if app is not None:
-            if not re.match("^[\w.-]*$", app):
+            if not re.match(r'^[\w.-]*$', app):
                 raise ValueError("Invalid app given")
             self._app = app
 
         if id is not None:
-            if not re.match("^[\w.-]*$", id):
+            if not re.match(r'^[\w.-]*$', id):
                 raise ValueError("Invalid id given")
             self._id = id
         else:
@@ -522,7 +522,7 @@ class CronNotify(object):
                 self._wait()
 
     def _initNotificationService(self):
-        if not pynotify.init("{}.{}.{}".format(__name__, self._app, os.getpid())):
+        if not pynotify.init(self._app or __name__):
             self._logger.critical("Failed to initialize notification service")
             raise RuntimeError("Failed to initialize notification service")
 
