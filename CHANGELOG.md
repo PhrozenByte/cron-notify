@@ -1,6 +1,18 @@
 cron-notify Changelog
 =====================
 
+Version 1.0.6
+-------------
+
+Released: 2024-11-01
+
+```
+  * Fix Python 3.12 deprecations
+  * Update Debian build script
+  * Reference Arch Linux AUR package
+  * Refactor changelog
+```
+
 Version 1.0.5
 -------------
 
